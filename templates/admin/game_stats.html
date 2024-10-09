@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 text-white">Game Stats</h1>
+<div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+    <h2 class="text-2xl font-bold mb-4 text-white">Game #{{ game.id }}</h2>
+    <p class="text-gray-300 mb-2">Pot Size: ${{ "%.2f"|format(game.pot_size) }}</p>
+    <p class="text-gray-300 mb-2">
+        Start Time: 
+        {% if game.start_time %}
+            {{ make_aware(game.start_time).strftime('%Y-%m-%d %H:%M:%S %Z') }}
+        {% else %}
+            Not Set
+        {% endif %}
+    </p>
+    <p class="text-gray-300 mb-2">
+        End Time: 
+        {% if game.end_time %}
+            {{ make_aware(game.end_time).strftime('%Y-%m-%d %H:%M:%S %Z') }}
+        {% else %}
+            Not Set
+        {% endif %}
+    </p>
+    <p class="text-gray-300 mb-2">
+        Time Limit: {{ game.time_limit // 60 }} minutes
+    </p>
+    <p class="text-gray-300 mb-2">
+        Players: {{ players|length }} / {{ game.max_players }}
+    </p>
+    <p class="text-gray-300 mb-2">
+        Status: 
+        {% set now = make_aware(now) %}
+        {% if game.is_complete %}
+            <span class="bg-green-500 text-white py-1 px-3 rounded-full text-xs">Completed</span>
+        {% elif game.has_started and now < make_aware(game.end_time) %}
+            <span class="bg-blue-500 text-white py-1 px-3 rounded-full text-xs">In Progress</span>
+        {% elif now >= make_aware(game.start_time) and now < make_aware(game.end_time) %}
+            <span class="bg-yellow-500 text-white py-1 px-3 rounded-full text-xs">Starting</span>
+        {% else %}
+            <span class="bg-gray-500 text-white py-1 px-3 rounded-full text-xs">Not Started</span>
+        {% endif %}
+    </p>
+</div>
+
+<h3 class="text-2xl font-bold mt-6 mb-4 text-white">Players</h3>
+<div class="overflow-x-auto">
+    <table class="w-full bg-gray-800 shadow-md rounded">
+        <thead>
+            <tr class="bg-gray-700 text-gray-200 uppercase text-sm leading-normal">
+                <th class="py-3 px-6 text-left">Rank</th>
+                <th class="py-3 px-6 text-left">Ethereum Address</th>
+                <th class="py-3 px-6 text-left">Score</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-300 text-sm font-light">
+            {% for player in players %}
+            <tr class="border-b border-gray-700 hover:bg-gray-600">
+                <td class="py-3 px-6 text-left">{{ loop.index }}</td>
+                <td class="py-3 px-6 text-left">{{ player.ethereum_address }}</td>
+                <td class="py-3 px-6 text-left">{{ player.score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<a href="{{ url_for('admin.dashboard') }}" class="mt-6 inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Back to Dashboard</a>
+
+{% endblock %}

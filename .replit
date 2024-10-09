@@ -1,0 +1,35 @@
+modules = ["web", "python-3.11", "nodejs-20"]
+run = "pip install -r requirements.txt && python app.py"
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+runButton = "Start Flask"
+
+[[workflows.workflow]]
+name = "Start Flask"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+# First task: Install requirements and start Flask Server
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install -r requirements.txt && python app.py"
+waitForPort = 5000
+
+# Optional task for creating admin user
+[[workflows.workflow.optionalTasks]]
+task = "shell.exec"
+args = "python create_admin.py"
+name = "Create Admin User"  # Label for the optional task
+
+[deployment]
+run = ["sh", "-c", "pip install -r requirements.txt && python app.py"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 5000
+externalPort = 80

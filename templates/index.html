@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="futuristic-container">
+    <h1 class="text-5xl font-bold text-center text-white mb-12">Welcome to Win The Wallet</h1>
+
+    <div class="stats-container">
+        <div class="stats-row">
+            <div class="stat-item">
+                <i class="fas fa-gamepad"></i>
+                <span class="stat-title"># of Games</span>
+                <span class="stat-value">{{ statistics.total_games }}</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-coins"></i>
+                <span class="stat-title">Rewards Distributed</span>
+                <span class="stat-value">${{ "%.2f"|format(statistics.total_rewards | default(0)) }}</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-users"></i>
+                <span class="stat-title">Total Number of Players</span>
+                <span class="stat-value">{{ statistics.total_players }}</span>
+            </div>
+        </div>
+        <div class="stats-row">
+            <div class="stat-item">
+                <i class="fas fa-clock"></i>
+                <span class="stat-title">Time Spent In-Game</span>
+                <span class="stat-value">{{ (statistics.total_time / 3600)|round(1) }} hours</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-hourglass-half"></i>
+                <span class="stat-title">Avg. Time Per Game</span>
+                <span class="stat-value">{{ (statistics.avg_time_per_game / 60)|round(1) }} minutes</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-trophy"></i>
+                <span class="stat-title">Earnings / Winner</span>
+                <span class="stat-value">${{ "%.2f"|format(statistics.avg_earnings_per_winner | default(0)) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-container" style="background-color: #2c2c2c; border: 2px solid #00ffff; border-radius: 10px; padding: 1.5rem; box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;">
+        <h2 class="neon-text mb-4">Important Information</h2>
+        <p class="mb-4" style="color: #ffffff;">To be eligible for rewards, you need to be holding $25 worth of Coin X.</p>
+        <p class="mb-4" style="color: #ffffff;">
+            Contract Address: 
+            <span class="contract-address" id="contract-address">0x1234567890123456789012345678901234567890</span>
+            <button id="copy-button" class="neon-button" style="margin-left: 10px;">Copy</button>
+        </p>
+        <a href="#" class="neon-button mt-4">Buy Coin X on Uniswap</a>
+    </div>
+
+    <h1 class="text-5xl font-bold text-center text-white mb-12">Available Games</h1>
+
+    <div id="games-list" class="games-grid">
+        {% for game in games %}
+        <div class="game-card" data-game-id="{{ game.id }}">
+            <div class="game-info">
+                <h3 class="game-title">Game #{{ game.id }}</h3>
+                <p><i class="fas fa-coins"></i> Entry: ${{ "%.2f"|format(game.entry_value | default(0)) }}</p>
+                <p><i class="fas fa-users"></i> <span class="player-count">{{ len(game.players) }}</span> / {{ game.max_players }}</p>
+
+                <!-- Countdown Timer -->
+                <p>
+                    <i class="far fa-clock"></i>
+                    <span class="countdown" id="countdown-{{ game.id }}" data-start-time="{{ make_aware(game.start_time).isoformat() }}" data-game-id="{{ game.id }}">Loading...</span>
+                </p>
+
+                <!-- Game Status -->
+                <p>Status: {{ 'Started' if game.has_started else 'Not Started' }}</p>
+            </div>
+            <div class="game-action">
+                <i class="fas fa-trophy pot-icon"></i>
+                <p class="pot-size" style="font-size: 1.5rem; font-weight: bold;">$<span>{{ "%.2f"|format(game.pot_size | default(0)) }}</span></p>
+
+                <!-- Redirect to the lobby -->
+                <a href="{{ url_for('main.game_lobby', game_id=game.id) }}" class="neon-button">Join Game</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Copy contract address functionality
+    const copyButton = document.getElementById('copy-button');
+    const contractAddress = document.getElementById('contract-address');
+
+    copyButton.addEventListener('click', function() {
+        navigator.clipboard.writeText(contractAddress.textContent).then(function() {
+            alert('Contract address copied to clipboard!');
+        }, function(err) {
+            console.error('Could not copy text: ', err);
+        });
+    });
+
+    // Countdown timer functionality
+    function updateCountdown() {
+        const countdowns = document.querySelectorAll('.countdown');
+        const now = new Date();
+
+        countdowns.forEach(countdown => {
+            const startTime = new Date(countdown.getAttribute('data-start-time'));
+            const timeLeft = startTime - now;
+
+            if (timeLeft > 0) {
+                const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                countdown.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+            } else {
+                countdown.textContent = 'Game Started';
+            }
+        });
+    }
+
+    // Update countdowns every second
+    setInterval(updateCountdown, 1000);
+    updateCountdown(); // Initial call
+
+    // Socket.io for real-time updates
+    const socket = io();
+
+    socket.on('player_joined', function(data) {
+        const gameCard = document.querySelector(`.game-card[data-game-id="${data.game_id}"]`);
+        if (gameCard) {
+            const playerCount = gameCard.querySelector('.player-count');
+            playerCount.textContent = data.player_count;
+        }
+    });
+
+    socket.on('game_started', function(data) {
+        const countdown = document.querySelector(`#countdown-${data.game_id}`);
+        if (countdown) {
+            countdown.textContent = 'Game Started';
+        }
+    });
+});
+</script>
+{% endblock %}

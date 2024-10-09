@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 text-white">Create New Game</h1>
+<form method="POST" action="{{ url_for('admin.create_game') }}" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4" id="create-game-form">
+    {{ form.csrf_token }}
+    {% for field in form if field.widget.input_type != 'hidden' and field.name != 'csrf_token' and field.name != 'submit' %}
+        <div class="mb-4">
+            {{ field.label(class="block text-gray-700 text-sm font-bold mb-2") }}
+            {% if field.name == 'start_time' %}
+                {{ field(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline", placeholder="YYYY-MM-DD HH:MM:SS") }}
+                <small class="text-gray-600">Please enter the time in the format: YYYY-MM-DD HH:MM:SS</small>
+            {% else %}
+                {{ field(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline") }}
+            {% endif %}
+            <div class="error-message text-red-500 text-xs italic"></div>
+        </div>
+    {% endfor %}
+    <div class="flex items-center justify-between">
+        <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Create Game
+        </button>
+    </div>
+</form>
+<div id="form-messages" class="mt-4"></div> <!-- Add a container for messages -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('create-game-form');
+        const formMessages = document.getElementById('form-messages');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+
+            // Fetch the start_time value
+            const startTimeField = form.querySelector('[name="start_time"]');
+            if (startTimeField) {
+                // Ensure that the entered time follows the expected format 'YYYY-MM-DD HH:MM:SS'
+                const startTime = startTimeField.value; 
+                formData.set('start_time', startTime); // Set as is since it's already formatted as string
+            }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    formMessages.innerHTML = '<p class="text-green-500">Game created successfully!</p>';
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 2000);
+                } else {
+                    let errorMessage = 'Error creating game. Please check the form and try again.';
+                    if (data.message) {
+                        errorMessage = data.message;
+                    }
+                    formMessages.innerHTML = `<p class="text-red-500">${errorMessage}</p>`;
+
+                    if (data.errors) {
+                        Object.keys(data.errors).forEach(key => {
+                            const field = form.querySelector(`[name="${key}"]`);
+                            if (field) {
+                                const errorElement = field.nextElementSibling;
+                                errorElement.textContent = data.errors[key].join(', ');
+                            }
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                formMessages.innerHTML = '<p class="text-red-500">An error occurred. Please try again.</p>';
+            });
+        });
+    });
+</script>
+{% endblock %}

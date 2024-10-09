@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-5xl font-bold text-center text-white mb-12">Game Lobby</h1>
+<!-- Game Information Container -->
+<div class="info-container game-lobby-info" style="display: flex; justify-content: space-between; align-items: center; width: 60%; margin: 0 auto;">
+    <div style="flex: 1;">
+        <h2 class="text-2xl font-bold mb-4 neon-text">Game #{{ game.id }}</h2>
+        <p class="mb-2 text-white">Pot Size: ${{ "%.2f"|format(game.pot_size) }}</p>
+        <p class="mb-2 text-white">Entry Value: ${{ "%.2f"|format(game.entry_value) }}</p>
+        <p class="mb-2 text-white">Players: <span id="player-count">{{ players|length }}</span> / {{ game.max_players }}</p>
+    </div>
+    <div class="countdown-wrapper">
+        <span id="countdown" class="neon-clock" data-start-time="{{ make_aware(game.start_time).isoformat() if game.start_time else '' }}"></span>
+    </div>
+</div>
+
+<!-- Players List -->
+<div class="info-container" style="margin-top: 20px; width: 60%; margin: 20px auto;">
+    <h3 class="text-xl font-bold text-white mb-4">Players Joined:</h3>
+    <ul id="players-list">
+        {% for player in players %}
+            <li class="text-white">{{ player.ethereum_address }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<!-- Connect Wallet Button -->
+<div class="info-container" style="margin-top: 20px; width: 60%; margin: 20px auto;">
+    <div class="mb-4">
+        <button id="connect-wallet" class="neon-button">Connect Wallet</button>
+        <p id="wallet-address" class="text-white mt-2"></p>
+        <p id="wallet-status" class="text-red-500 text-xs italic"></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startTimeElement = document.getElementById('countdown');
+    const startTimeStr = startTimeElement.dataset.startTime;
+    const socket = io(); // Connect to the default namespace
+    const connectWalletBtn = document.getElementById('connect-wallet');
+    const walletAddressDisplay = document.getElementById('wallet-address');
+    const walletStatus = document.getElementById('wallet-status');
+    const playerList = document.getElementById('players-list');
+    let walletAddress = null;
+
+    // Countdown logic
+    if (!startTimeStr) {
+        console.error('Start time is not set.');
+        return;
+    }
+    const startTime = new Date(startTimeStr);
+    if (isNaN(startTime)) {
+        console.error('Invalid start time:', startTimeStr);
+        return;
+    }
+    socket.on('connect', function() {
+        console.log('Connected to server');
+        socket.emit('join', { game_id: {{ game.id }} });
+    });
+
+    function updateCountdown() {
+        const now = new Date();
+        const timeLeft = startTime - now;
+        
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            startTimeElement.textContent = 'Game has started!';
+            socket.emit('game_started', {'game_id': {{ game.id }}});
+
+            // Delay redirection slightly to ensure smooth transition
+            setTimeout(() => {
+                window.location.href = "{{ url_for('main.play_game', game_id=game.id) }}";
+            }, 1000); // Delay by 1 second
+        } else {
+            const minutes = Math.floor(timeLeft / 60000);
+            const seconds = Math.floor((timeLeft % 60000) / 1000);
+            startTimeElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+
+    // Initialize countdown and set interval
+    let timer = setInterval(updateCountdown, 1000);
+
+    // MetaMask Wallet Connect
+    async function connectWallet() {
+        if (typeof window.ethereum !== 'undefined') {
+            try {
+                const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
+                walletAddressDisplay.textContent = `Connected: ${walletAddress}`;
+                walletStatus.textContent = '';
+
+                // Automatically join the game when the wallet is connected
+                fetch('{{ url_for("main.game_lobby", game_id=game.id) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ ethereum_address: walletAddress })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Joined game with wallet:', walletAddress);
+                        // Update the player count on successful join
+                        const playerCountElement = document.getElementById('player-count');
+                        playerCountElement.textContent = parseInt(playerCountElement.textContent) + 1;
+
+                        // Add the player to the players list
+                        const newPlayer = document.createElement('li');
+                        newPlayer.textContent = walletAddress;
+                        newPlayer.classList.add('text-white');
+                        playerList.appendChild(newPlayer);
+                    } else {
+                        alert(data.message || 'Failed to join the game. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error joining game:', error);
+                    walletStatus.textContent = 'Error joining the game. Please try again.';
+                });
+            } catch (error) {
+                walletStatus.textContent = 'Error connecting wallet. Please try again.';
+            }
+        } else {
+            walletStatus.textContent = 'MetaMask is not installed. Please install it to connect your wallet.';
+        }
+    }
+
+    // Handle wallet connection button click
+    connectWalletBtn.addEventListener('click', connectWallet);
+
+    // Check if the wallet is already connected
+    if (typeof window.ethereum !== 'undefined') {
+        ethereum.request({ method: 'eth_accounts' })
+            .then(accounts => {
+                if (accounts.length > 0) {
+                    walletAddress = accounts[0];
+                    walletAddressDisplay.textContent = `Connected: ${walletAddress}`;
+                    walletStatus.textContent = '';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking wallet connection:', error);
+            });
+    }
+
+    // Listen for player join updates via socket.io
+    socket.on('player_joined', function(data) {
+        if (data.game_id === {{ game.id }}) {
+            const playerCountElement = document.getElementById('player-count');
+            playerCountElement.textContent = data.player_count;
+
+            // Optionally, add new players to the players list dynamically
+            const newPlayer = document.createElement('li');
+            newPlayer.textContent = data.ethereum_address;
+            newPlayer.classList.add('text-white');
+            playerList.appendChild(newPlayer);
+        }
+    });
+});
+</script>
+{% endblock %}

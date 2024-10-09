@@ -1,0 +1,31 @@
+Create a website and app (keep the app as the last stage after the website has been fully completed and signed off).
+The website/app will be a game. It will be called "Win The Wallet".
+On the admin side:
+1.	Admin clicks "create game"
+2.	Admin sets a time limit for each game
+3.	Admin sets how many players can join each game.
+4.	Admin determines the pot size and entry value for each game.
+5.	Admin enters up to 12 phrases/sentences, example: "The name of the founder of Bitcoin"
+6.	Each sentence has an answer, example "Satoshi". So it will look like fill in the blanks or a question with an answer.
+7.	Admin can view how many people joined the lobby to play the game before it starts.
+8.	Game starts under two options - the admin sets what time the game starts, OR the admin can force click "start game". When admin clicks "Start game" OR when the specified time by the admin reaches, the game starts and the countdown timer begins.
+On the user side:
+1.	User opens the website
+2.	User can see how many games there are, the pot size for each game, and the number of players who joined the lobby, and the time at which the game will start
+3.	Users should be able to filter the games based on (pot size, time to start)
+4.	User selects which game they would like to play and clicks on it
+5.	Once clicked, user must enter their ethereum address. Take this as plain text, do not include any web3 connections and there is no need to verify the address. Just take it as plain text input
+6.	Once user clicks join game, the user enters the lobby and can see the time remaining until the game starts
+7.	Once the game starts, all the 12 phrases appear and the user starts putting their answers.
+8.	User will not know if his answer is correct or not.
+9.	If one user gets all the correct answers, the game ends for everyone
+10.	If the timer ends and no user got all the correct answers, the user with the highest correct answers will be the winner.
+Admin Panel should show the following:
+1.	All the games that have been created
+2.	All the games that have been complete - these are grey in color for the admin
+3.	All the games that are still not complete - these are teal green in color for the admin
+4.	The admin can view stats for each game - how many users joined and played the game, their ethereum address, the leaderboard / scores for each, sorted from highest score to lowest score, and the pot size that was selected for each game, and the date and time of each game
+On the main page, let the users know that they need to be holding $25 worth of the Coin X (the coin name will be updated later) to be eligible for the rewards. If at the time of joining the lobby they don't have the coins, they won't be awarded. The main page should also show the contract address of the coin, and a link to buy the coin on Uniswap (these will also be provided later)
+Make the UI/UX very cool - include any other AI you would like to help with this.
+A logo for the game will be provided later, but the name of the game will be "Win The Wallet"
+

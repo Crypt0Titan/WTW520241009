@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<!-- Game Title -->
+<div class="container mx-auto mt-10">
+    <h1 class="text-5xl font-bold text-center neon-text mb-8">Game #{{ game.id }}</h1>
+</div>
+
+<!-- Game Information Container -->
+<div class="container mx-auto mb-8 bg-gray-800 rounded-lg p-6 shadow-lg text-white">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <h2 class="text-2xl font-bold neon-text">Game Information</h2>
+            <p class="mt-2"><strong>Pot Size:</strong> ${{ "%.2f"|format(game.pot_size) }}</p>
+            <p class="mt-2"><strong>Entry Value:</strong> ${{ "%.2f"|format(game.entry_value) }}</p>
+            <p class="mt-2"><strong>Players:</strong> {{ players|length }} / {{ game.max_players }}</p>
+        </div>
+        <!-- Countdown Timer -->
+        <div class="text-center">
+            <h2 class="text-2xl font-bold neon-text">Time Remaining</h2>
+            <span id="countdown" class="text-3xl neon-clock" data-end-time="{{ make_aware(game.end_time).isoformat() if game.end_time else '' }}"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Game Questions Section -->
+<div class="container mx-auto p-6 shadow-lg text-white" style="background-color: #121212;">
+    <div class="flex">
+        <!-- Navigation Blocks for Each Question (two columns, aligned left) -->
+        <div class="mr-8">
+            <div class="flex">
+                <div class="grid grid-cols-1 gap-2 mr-4">
+                    {% for i in range(1, 7) %}
+                    <div class="question-box w-12 h-12 text-center flex items-center justify-center text-white font-bold border-2 border-white cursor-pointer" 
+                         data-index="{{ i }}" style="background-color: transparent;">
+                        {{ i }}
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="grid grid-cols-1 gap-2">
+                    {% for i in range(7, 13) %}
+                    <div class="question-box w-12 h-12 text-center flex items-center justify-center text-white font-bold border-2 border-white cursor-pointer" 
+                         data-index="{{ i }}" style="background-color: transparent;">
+                        {{ i }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions and Answers Area -->
+        <div class="flex-grow">
+            <form method="POST" action="{{ url_for('main.submit_answers', game_id=game.id) }}" id="questions-form">
+                <div id="questions-container" class="relative" style="min-height: 300px;">
+                    {% for question in questions %}
+                    <div class="question-container text-center p-6 absolute w-full transition-all duration-500 ease-in-out" 
+                         data-index="{{ loop.index }}" 
+                         style="display: {% if loop.first %}block{% else %}none{% endif %}; 
+                                border: 2px solid transparent; 
+                                transform: translateX({% if loop.first %}0%{% else %}100%{% endif %});">
+                        <label class="block text-4xl font-bold text-white mb-4">{{ question.phrase }}</label>
+                        <div class="flex flex-col items-center">
+                            <input type="text" name="answers[]" class="answer-input mt-4 p-2 rounded-lg shadow-md text-black text-center" 
+                                   data-index="{{ loop.index }}" style="width: 30%; margin: 20px auto;" required>
+                            <div class="flex justify-center mt-4">
+                                <button type="button" class="next-question-btn neon-button px-4 py-2 mr-4">Next Question</button>
+                                <button type="button" class="skip-question-btn neon-button px-4 py-2">Skip Question</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Submit Button -->
+                <div class="mt-8 text-center">
+                    <button type="submit" class="neon-button text-lg font-bold py-2 px-8" id="submit-btn" disabled>Submit Answers</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questions = document.querySelectorAll('.question-container');
+    const questionBoxes = document.querySelectorAll('.question-box');
+    const submitBtn = document.getElementById('submit-btn');
+    const skippedQuestions = new Set();
+    let answeredQuestions = new Set();
+    let currentQuestionIndex = 0;
+
+    const neonGreen = '#39FF14';
+    const neonYellow = '#FFFF00';
+    const pageBackgroundColor = '#121212';
+
+    function updateQuestionBoxColor(index, color) {
+        questionBoxes[index].style.backgroundColor = color;
+        if (color === 'transparent') {
+            questionBoxes[index].style.color = 'white'; // Default text color
+        } else {
+            questionBoxes[index].style.color = pageBackgroundColor; // Page background color
+        }
+    }
+    
+    function showQuestion(index) {
+        questions.forEach((q, i) => {
+            if (i === index) {
+                q.style.display = 'block';
+                q.style.transform = 'translateX(0%)';
+                q.style.opacity = '1';
+            } else {
+                q.style.display = 'none';
+                q.style.transform = 'translateX(100%)';
+                q.style.opacity = '0';
+            }
+        });
+        currentQuestionIndex = index;
+    }
+
+    function updateSubmitButtonState() {
+        if (answeredQuestions.size + skippedQuestions.size === questions.length) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50');
+        }
+    }
+
+    function moveToNextQuestion() {
+        if (currentQuestionIndex < questions.length - 1) {
+            showQuestion(currentQuestionIndex + 1);
+        }
+    }
+
+    questionBoxes.forEach((box, index) => {
+        box.addEventListener('click', function() {
+            showQuestion(index);
+        });
+    });
+
+    questions.forEach((question, index) => {
+        const input = question.querySelector('input');
+        const nextBtn = question.querySelector('.next-question-btn');
+        const skipBtn = question.querySelector('.skip-question-btn');
+
+        input.addEventListener('input', function() {
+            if (input.value.trim() !== '') {
+                updateQuestionBoxColor(index, neonGreen);
+                answeredQuestions.add(index);
+                skippedQuestions.delete(index);
+            } else {
+                updateQuestionBoxColor(index, 'transparent');
+                answeredQuestions.delete(index);
+            }
+            updateSubmitButtonState();
+        });
+
+        nextBtn.addEventListener('click', function() {
+            if (input.value.trim() !== '') {
+                moveToNextQuestion();
+            }
+        });
+
+        skipBtn.addEventListener('click', function() {
+            updateQuestionBoxColor(index, neonYellow);
+            skippedQuestions.add(index);
+            answeredQuestions.delete(index);
+            moveToNextQuestion();
+            updateSubmitButtonState();
+        });
+    });
+
+    // Countdown logic (for game duration)
+    const endTimeElement = document.getElementById('countdown');
+    const endTimeStr = endTimeElement.dataset.endTime;
+    if (endTimeStr) {
+        const endTime = new Date(endTimeStr);
+        if (!isNaN(endTime)) {
+            function updateCountdown() {
+                const now = new Date();
+                const timeLeft = endTime - now;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    endTimeElement.textContent = "Game Over!";
+                } else {
+                    const minutes = Math.floor(timeLeft / 60000);
+                    const seconds = Math.floor((timeLeft % 60000) / 1000);
+                    endTimeElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }
+            const timer = setInterval(updateCountdown, 1000);
+            updateCountdown(); // Call immediately to avoid delay in initial display
+        }
+    }
+});
+</script>
+{% endblock %}

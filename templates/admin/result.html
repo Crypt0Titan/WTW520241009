@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-5xl font-bold text-center mb-8" style="color: #00ffff;">Game Results for Game #{{ game.id }}</h1>
+
+    <div class="results-container text-center mb-8">
+        <h2 class="text-3xl font-bold mb-4" style="color: #00ffff;">Your Score: {{ score }}</h2>
+        {% set rank = (players|sort(attribute='score', reverse=True)|map(attribute='ethereum_address')|list).index(ethereum_address) + 1 %}
+        <p class="text-xl text-white">Your Rank: {{ rank }} / {{ players|length }}</p>
+    </div>
+
+    <div class="leaderboard bg-gray-800 rounded-lg shadow-lg p-6">
+        <h3 class="text-2xl font-bold mb-4" style="color: #00ffff;">Leaderboard</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full bg-gray-700 shadow-md rounded">
+                <thead>
+                    <tr class="bg-gray-600 text-gray-200 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6 text-left">Rank</th>
+                        <th class="py-3 px-6 text-left">Ethereum Address</th>
+                        <th class="py-3 px-6 text-left">Score</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300 text-sm font-light">
+                    {% for player in players|sort(attribute='score', reverse=True) %}
+                        <tr class="border-b border-gray-600 hover:bg-gray-500 {{ 'bg-blue-900' if player.ethereum_address == ethereum_address else '' }}">
+                            <td class="py-3 px-6">{{ loop.index }}</td>
+                            <td class="py-3 px-6">{{ player.ethereum_address }}</td>
+                            <td class="py-3 px-6">{{ player.score }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-center mt-8">
+        <a href="{{ url_for('main.index') }}" class="neon-button text-white">Back to Home</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Additional JavaScript can go here if needed
+</script>
+{% endblock %}

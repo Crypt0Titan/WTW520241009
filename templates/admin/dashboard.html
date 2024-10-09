@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-3xl font-bold mb-6 text-white">Admin Dashboard</h1>
+<div class="flex justify-between items-center mb-6">
+    <a href="{{ url_for('admin.create_game') }}" class="neon-button text-white">Create New Game</a>
+    <a href="{{ url_for('admin.admin_logout') }}" class="btn bg-transparent hover:bg-gray-600 text-white">Logout</a>
+</div>
+<h2 class="text-2xl font-bold mb-4">Games</h2>
+<div class="overflow-x-auto">
+    <table class="w-full bg-white shadow-md rounded">
+        <thead>
+            <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                <th class="py-3 px-6 text-left">ID</th>
+                <th class="py-3 px-6 text-left">Start Time</th>
+                <th class="py-3 px-6 text-left">End Time</th>
+                <th class="py-3 px-6 text-left">Pot Size</th>
+                <th class="py-3 px-6 text-left">Players</th>
+                <th class="py-3 px-6 text-left">Status</th>
+                <th class="py-3 px-6 text-left">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-600 text-sm font-light">
+            {% for game in games %}
+                <tr class="border-b border-gray-200 hover:bg-gray-100">
+                    <td class="py-3 px-6">{{ game.id }}</td>
+                    <td class="py-3 px-6">
+                        {% if game.start_time %}
+                            {{ make_aware(game.start_time).strftime('%Y-%m-%d %H:%M:%S %Z') }}
+                        {% else %}
+                            Not Set
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-6">
+                        {% if game.end_time %}
+                            {{ make_aware(game.end_time).strftime('%Y-%m-%d %H:%M:%S %Z') }}
+                        {% else %}
+                            Not Set
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-6">${{ "%.2f"|format(game.pot_size) }}</td>
+                    <td class="py-3 px-6">{{ game.players | length }} / {{ game.max_players }}</td>
+                    <td class="py-3 px-6">
+                        {% set now = make_aware(now) %}
+                        {% if game.is_complete %}
+                            <span class="text-green-600 font-semibold">Completed</span>
+                        {% elif game.has_started and now < make_aware(game.end_time) %}
+                            <span class="text-blue-600 font-semibold">In Progress</span>
+                        {% elif now >= make_aware(game.start_time) and now < make_aware(game.end_time) %}
+                            <span class="text-yellow-600 font-semibold">Starting</span>
+                        {% else %}
+                            <span class="text-gray-600">Not Started</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-6">
+                        <a href="{{ url_for('admin.game_stats', game_id=game.id) }}" class="text-blue-500 hover:underline">View Stats</a>
+                        {% if not game.is_complete %}
+                            <form action="{{ url_for('admin.end_game', game_id=game.id) }}" method="POST" class="inline ml-2">
+                                <button type="submit" class="neon-button text-white">End Game</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
